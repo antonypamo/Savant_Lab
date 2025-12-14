@@ -1,10 +1,12 @@
 from __future__ import annotations
-import os, json, time, uuid
-from dataclasses import dataclass
-from typing import Dict, Any, List, Tuple
 
-import requests
+import json
+import os
+import time
+from typing import Any, Dict, Tuple
+
 import numpy as np
+import requests
 
 ARTIFACTS_DIR = os.environ.get("ARTIFACTS_DIR", "artifacts/lab")
 BASE_URL = os.environ.get("SAVANT_BASE_URL", "https://antonypamo-apisavant2.hf.space").rstrip("/")
@@ -18,25 +20,32 @@ def _write_json(path: str, obj: Any) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False)
 
-def _get(path: str) -> Tuple[int, Any, float]:
-    t0 = time.perf_counter()
-    r = requests.get(f"{BASE_URL}{path}", timeout=TIMEOUT)
-    dt = time.perf_counter() - t0
+def _parse_response(r: requests.Response) -> Any:
     try:
-        body = r.json()
+        return r.json()
     except Exception:
-        body = r.text
-    return r.status_code, body, dt
+        return r.text
+
+
+def _safe_request(method: str, path: str, **kwargs: Any) -> Tuple[int, Any, float]:
+    t0 = time.perf_counter()
+    try:
+        r = requests.request(method, f"{BASE_URL}{path}", timeout=TIMEOUT, **kwargs)
+        body = _parse_response(r)
+        status = r.status_code
+    except requests.RequestException as exc:
+        status = 0
+        body = str(exc)
+    dt = time.perf_counter() - t0
+    return status, body, dt
+
+
+def _get(path: str) -> Tuple[int, Any, float]:
+    return _safe_request("GET", path)
+
 
 def _post(path: str, payload: Dict[str, Any]) -> Tuple[int, Any, float]:
-    t0 = time.perf_counter()
-    r = requests.post(f"{BASE_URL}{path}", json=payload, timeout=TIMEOUT)
-    dt = time.perf_counter() - t0
-    try:
-        body = r.json()
-    except Exception:
-        body = r.text
-    return r.status_code, body, dt
+    return _safe_request("POST", path, json=payload)
 
 def smoke_tests() -> Dict[str, Any]:
     tests = [
