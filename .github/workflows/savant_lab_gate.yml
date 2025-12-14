@@ -34,14 +34,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r lab/requirements-lab.txt
 
-        - name: Run LAB gate
-          run: |
-            # fallback si no está el secret
-            if [ -z "${SAVANT_BASE_URL}" ]; then
-              echo "Aviso: SAVANT_BASE_URL no está configurado como secret; usando fallback https://antonypamo-apisavant2.hf.space"
-              export SAVANT_BASE_URL="https://antonypamo-apisavant2.hf.space"
-            fi
-            python lab/savant_lab_runner.py
+      - name: Run LAB gate
+        run: |
+          # fallback si no está el secret
+          if [ -z "${SAVANT_BASE_URL}" ]; then
+            echo "Aviso: SAVANT_BASE_URL no está configurado como secret; usando fallback https://antonypamo-apisavant2.hf.space"
+            export SAVANT_BASE_URL="https://antonypamo-apisavant2.hf.space"
+          fi
+          python lab/savant_lab_runner.py
 
       - name: Upload artifacts
         if: always()
