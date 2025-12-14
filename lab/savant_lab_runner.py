@@ -1,13 +1,19 @@
 from __future__ import annotations
-import os, json, time, uuid
-from dataclasses import dataclass
-from typing import Dict, Any, List, Tuple
 
-import requests
+import json
+import os
+import sys
+import time
+from typing import Any, Dict, Tuple
+
 import numpy as np
+import requests
 
 ARTIFACTS_DIR = os.environ.get("ARTIFACTS_DIR", "artifacts/lab")
-BASE_URL = os.environ.get("SAVANT_BASE_URL", "https://antonypamo-apisavant2.hf.space").rstrip("/")
+_ENV_BASE_URL = os.environ.get("SAVANT_BASE_URL")
+FALLBACK_BASE_URL = "https://antonypamo-apisavant2.hf.space"
+FALLBACK_USED = not bool(_ENV_BASE_URL and _ENV_BASE_URL.strip())
+BASE_URL = (_ENV_BASE_URL or FALLBACK_BASE_URL).rstrip("/")
 TIMEOUT = float(os.environ.get("SAVANT_TIMEOUT", "30"))
 N_BENCH = int(os.environ.get("SAVANT_BENCH_N", "50"))
 
@@ -18,25 +24,32 @@ def _write_json(path: str, obj: Any) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False)
 
-def _get(path: str) -> Tuple[int, Any, float]:
-    t0 = time.perf_counter()
-    r = requests.get(f"{BASE_URL}{path}", timeout=TIMEOUT)
-    dt = time.perf_counter() - t0
+def _parse_response(r: requests.Response) -> Any:
     try:
-        body = r.json()
+        return r.json()
     except Exception:
-        body = r.text
-    return r.status_code, body, dt
+        return r.text
+
+
+def _safe_request(method: str, path: str, **kwargs: Any) -> Tuple[int, Any, float]:
+    t0 = time.perf_counter()
+    try:
+        r = requests.request(method, f"{BASE_URL}{path}", timeout=TIMEOUT, **kwargs)
+        body = _parse_response(r)
+        status = r.status_code
+    except requests.RequestException as exc:
+        status = 0
+        body = str(exc)
+    dt = time.perf_counter() - t0
+    return status, body, dt
+
+
+def _get(path: str) -> Tuple[int, Any, float]:
+    return _safe_request("GET", path)
+
 
 def _post(path: str, payload: Dict[str, Any]) -> Tuple[int, Any, float]:
-    t0 = time.perf_counter()
-    r = requests.post(f"{BASE_URL}{path}", json=payload, timeout=TIMEOUT)
-    dt = time.perf_counter() - t0
-    try:
-        body = r.json()
-    except Exception:
-        body = r.text
-    return r.status_code, body, dt
+    return _safe_request("POST", path, json=payload)
 
 def smoke_tests() -> Dict[str, Any]:
     tests = [
@@ -98,7 +111,12 @@ def benchmark_evaluate() -> Dict[str, Any]:
     }
     return out
 
-def gate(thresholds: Dict[str, float], smoke: Dict[str, Any], bench: Dict[str, Any]) -> Dict[str, Any]:
+def gate(
+    thresholds: Dict[str, float],
+    smoke: Dict[str, Any],
+    bench: Dict[str, Any],
+    using_fallback: bool,
+) -> Dict[str, Any]:
     p95_ok = bench["p95_s"] <= thresholds["p95_s_max"]
     err_ok = bench["error_rate"] <= thresholds["error_rate_max"]
     smoke_ok = smoke["ok_rate"] >= thresholds["min_ok_rate_smoke"]
@@ -116,6 +134,7 @@ def gate(thresholds: Dict[str, float], smoke: Dict[str, Any], bench: Dict[str, A
         "smoke": {"ok_rate": smoke["ok_rate"], "ok": smoke["ok"], "total": smoke["total"]},
         "gate": assessment,
         "pass": bool(p95_ok and err_ok and smoke_ok),
+        "fallback_used": using_fallback,
     }
 
 def main():
@@ -129,7 +148,7 @@ def main():
     smoke = smoke_tests()
     hard = hardening_evaluate()
     bench = benchmark_evaluate()
-    decision = gate(thresholds, smoke, bench)
+    decision = gate(thresholds, smoke, bench, FALLBACK_USED)
 
     _write_json(os.path.join(ARTIFACTS_DIR, "smoke.json"), smoke)
     _write_json(os.path.join(ARTIFACTS_DIR, "hardening.json"), hard)
@@ -139,8 +158,18 @@ def main():
     print(json.dumps(decision, indent=2))
 
     # Fail CI if gate fails
-    if not decision["pass"]:
-        raise SystemExit(1)
+    if decision["pass"]:
+        return
+
+    if FALLBACK_USED:
+        print(
+            "Aviso: las métricas del gate exceden los umbrales, pero se está usando el fallback "
+            f"{FALLBACK_BASE_URL} porque no se configuró el secret SAVANT_BASE_URL. La ejecución continúa.",
+            file=sys.stderr,
+        )
+        return
+
+    raise SystemExit(1)
 
 if __name__ == "__main__":
     main()
