@@ -1,12 +1,20 @@
-# Savant_Lab
+# Savant LAB CI/CD Gate
 
-## Lab
+## What this does
+- Smoke tests: `/`, `/health`, `/docs`, `/openapi.json`
+- Hardening tests: size/control chars/injection-like content on `/evaluate`
+- Benchmark: N requests to `/evaluate`, computes p50/p95/p99 and error_rate
+- Release gate: fails CI if thresholds are exceeded
 
-TODO: Describe the lab process.
+## Configure
+Set GitHub Actions secret `SAVANT_BASE_URL` to your Space URL.
 
-### CI y secreto requerido
+## Thresholds
+Edit `lab/thresholds.json`.
 
-El workflow `.github/workflows/savant_lab_gate.yml` espera que exista un secret de
-repositorio llamado `SAVANT_BASE_URL` con la URL base del API de Savant. Si el
-secret no está definido, la ejecución usa como respaldo público
-`https://antonypamo-apisavant2.hf.space` e imprime un aviso en los logs de CI.
+## Run locally
+```bash
+pip install -r lab/requirements-lab.txt
+export SAVANT_BASE_URL="https://antonypamo-apisavant2.hf.space"
+python lab/savant_lab_runner.py
+```
