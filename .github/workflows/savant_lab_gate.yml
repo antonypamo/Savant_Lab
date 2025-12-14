@@ -16,7 +16,8 @@ jobs:
       ARTIFACTS_DIR: artifacts/lab
       SAVANT_TIMEOUT: "30"
       SAVANT_BENCH_N: "50"
-      # OJO: ideal es usar Secrets, pero dejo fallback público:
+      # OJO: usa el secret de repositorio "SAVANT_BASE_URL" (URL base del API de Savant).
+      # Si no está definido el secret, el step "Run LAB gate" usará el fallback público.
       SAVANT_BASE_URL: ${{ secrets.SAVANT_BASE_URL }}
 
     steps:
@@ -37,6 +38,7 @@ jobs:
         run: |
           # fallback si no está el secret
           if [ -z "${SAVANT_BASE_URL}" ]; then
+            echo "Aviso: SAVANT_BASE_URL no está configurado como secret; usando fallback https://antonypamo-apisavant2.hf.space"
             export SAVANT_BASE_URL="https://antonypamo-apisavant2.hf.space"
           fi
           python lab/savant_lab_runner.py
