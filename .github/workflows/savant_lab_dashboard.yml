@@ -20,7 +20,7 @@ jobs:
       SAVANT_TIMEOUT: "30"
       SAVANT_BENCH_N: "50"
       SAVANT_EVALSET: lab/data/evalset.jsonl
-      SAVANT_BASE_URL: ${{ secrets.https://antonypamo-apisavant2.hf.space }}
+      SAVANT_BASE_URL: ${{ https://antonypamo-apisavant2.hf.space }}
 
     steps:
       - name: Checkout
