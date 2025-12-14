@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r lab/requirements-lab.txt
+          pip install -r Savant_Lab/lab/requirements-lab.txt
 
       - name: Run LAB gate
         run: |
@@ -39,11 +39,11 @@ jobs:
           if [ -z "${SAVANT_BASE_URL}" ]; then
             export SAVANT_BASE_URL="https://antonypamo-apisavant2.hf.space"
           fi
-          python lab/savant_lab_runner.py
+          python Savant_Lab/lab/savant_lab_runner.py
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: savant-lab-artifacts
-          path: artifacts/lab
+          path: Savant_Lab/artifacts/lab
