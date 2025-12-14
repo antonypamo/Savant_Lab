@@ -1,0 +1,5 @@
+{
+  "p95_s_max": 0.10,
+  "error_rate_max": 0.005,
+  "min_ok_rate_smoke": 1.0
+}
